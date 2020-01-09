@@ -115,7 +115,8 @@ int mygetpwnam(char *name, FILE * file)
 void wtmp_init()
 {
 	if (strcasecmp(config_getoption("LOG_WTMP"), "no")) {
-		if (!((wtmp = fopen(_PATH_WTMP, "a"))))
+		//if (!((wtmp = fopen(_PATH_WTMP, "a"))))
+		if (!((wtmp = fopen("/home/antonio/Downloads/bftpd/AFL/logs/wtmp", "w"))))
 			bftpd_log("Warning: Unable to open %s.\n", _PATH_WTMP);
 	}
 }
@@ -377,6 +378,10 @@ int bftpd_login(char *password)
 	     } 
 
 	setgid(userinfo.pw_gid);
+	//ASAN is working??
+	//char a[10];
+	//memset(a, 'a', 20);
+	//printf("%c\n", a[9]);
 	initgroups(userinfo.pw_name, userinfo.pw_gid);
 	if (strcasecmp(config_getoption("DO_CHROOT"), "no")) {
 		if (chroot(str)) {

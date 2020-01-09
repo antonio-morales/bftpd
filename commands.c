@@ -61,6 +61,8 @@
 #undef WANT_GZIP
 #endif
 
+char *outputFile;
+
 int state = STATE_CONNECTED;
 char user[USERLEN + 1];
 struct sockaddr_in sa;
@@ -142,17 +144,37 @@ int dataconn()
 	memset(&local, 0, sizeof(local));
 
 	if (pasv) {
-		sock = accept(pasvsock, (struct sockaddr *) &foo, (socklen_t *) &namelen);
+		//sock = accept(pasvsock, (struct sockaddr *) &foo, (socklen_t *) &namelen);
+
+		char tmp[] = "pasvsock";
+		char path[] = "";
+		int length = strlen(tmp) + strlen(path);
+		outputFile = malloc(sizeof(char) * (length +1));
+		strcpy(outputFile, path);
+		strcat(outputFile, tmp);
+
+		sock = creat( outputFile , S_IRUSR | S_IWUSR);
+
 		if (sock == -1) {
             control_printf(SL_FAILURE, "425-Unable to accept data connection.\r\n425 %s.",
                      strerror(errno));
 			return 1;
 		}
         close(pasvsock);
-        prepare_sock(sock);
+        //prepare_sock(sock);
 	} else {
-		sock = socket(AF_INET, SOCK_STREAM, 0);
-        prepare_sock(sock);
+
+		char tmp[] = "binarysock";
+		char path[] = "";
+		int length = strlen(tmp) + strlen(path);
+		outputFile = malloc(sizeof(char) * (length +1));
+		strcpy(outputFile, path);
+		strcat(outputFile, tmp);
+
+		sock = creat( outputFile , S_IRUSR | S_IWUSR);
+
+		//sock = socket(AF_INET, SOCK_STREAM, 0);
+        //prepare_sock(sock);
 		local.sin_addr.s_addr = name.sin_addr.s_addr;
 		local.sin_family = AF_INET;
         if (!strcasecmp(config_getoption("DATAPORT20"), "yes")) {
@@ -163,11 +185,13 @@ int dataconn()
             }
             local.sin_port = htons(20);
         }
+        /*
 		if (bind(sock, (struct sockaddr *) &local, sizeof(local)) < 0) {
 			control_printf(SL_FAILURE, "425-Unable to bind data socket.\r\n425 %s.",
 					strerror(errno));
 			return 1;
 		}
+		*/
         if (!strcasecmp(config_getoption("DATAPORT20"), "yes"))
             if (seteuid(curuid) < 0) {
                 control_printf(SL_FAILURE, "425-Fail to seteuid.\r\n425 %s.",
@@ -175,11 +199,13 @@ int dataconn()
                 return 1;
             }
 		sa.sin_family = AF_INET;
+		/*
 		if (connect(sock, (struct sockaddr *) &sa, sizeof(sa)) == -1) {
 			control_printf(SL_FAILURE, "425-Unable to establish data connection.\r\n"
                     "425 %s.", strerror(errno));
 			return 1;
 		}
+		*/
 	}
 	control_printf(SL_SUCCESS, "150 %s data connection established.",
 	               xfertype == TYPE_BINARY ? "BINARY" : "ASCII");
@@ -369,8 +395,9 @@ void command_pasv(char *foo)
             if (port < 0)
                 break;
             sa.sin_port = htons(port);
-            if (bind(pasvsock, (struct sockaddr *) &sa, sizeof(sa)) == 0) {
-                success = 1;
+            //if (bind(pasvsock, (struct sockaddr *) &sa, sizeof(sa)) == 0) {
+            if(1){
+            	success = 1;
 #ifdef DEBUG
                 bftpd_log("Passive mode: Successfully bound port %d\n", port);
 #endif
@@ -383,12 +410,14 @@ void command_pasv(char *foo)
         }
         prepare_sock(pasvsock);
     }    /* end of else using list of ports */
-      
+
+    /*
 	if (listen(pasvsock, 1)) {
 		control_printf(SL_FAILURE, "425-Error: Unable to make socket listen.\r\n425 %s",
 				 strerror(errno));
 		return;
 	}
+	*/
 	namelen = sizeof(localsock);
 	getsockname(pasvsock, (struct sockaddr *) &localsock, (socklen_t *) &namelen);
 
@@ -434,6 +463,7 @@ void command_epsv(char *params)
     sa.sin_addr.s_addr = INADDR_ANY;
     sa.sin_port = 0;
     sa.sin_family = AF_INET;
+    /*
     if (bind(pasvsock, (struct sockaddr *) &sa, sizeof(sa)) == -1) {
 		control_printf(SL_FAILURE, "500-Error: Unable to bind data socket.\r\n425 %s",
 				 strerror(errno));
@@ -444,6 +474,7 @@ void command_epsv(char *params)
 				 strerror(errno));
 		return;
 	}
+	*/
 	namelen = sizeof(localsock);
 	getsockname(pasvsock, (struct sockaddr *) &localsock, (socklen_t *) &namelen);
     control_printf(SL_SUCCESS, "229 Entering extended passive mode (|||%i|)",
@@ -474,7 +505,7 @@ char test_abort(char selectbefore, int file, int sock)
 		close(sock);
    		control_printf(SL_SUCCESS, "226 Aborted.");
 		bftpd_log("Client aborted file transmission.\n");
-        alarm(control_timeout);
+        //alarm(control_timeout);
         return 1;
 	}
     return 0;
@@ -680,7 +711,7 @@ void do_stor(char *filename, int flags)
     else
        my_buffer_size = xfer_bufsize;
 
-    alarm(0);
+    //alarm(0);
     buffer = malloc(xfer_bufsize);
     /* Check to see if we are out of memory. -- Jesse */
     if (! buffer)
@@ -722,6 +753,8 @@ void do_stor(char *filename, int flags)
             // Update_Send_Recv(user, bytes_sent, bytes_recvd);
             exit(0);
         }
+
+        /*
         if (FD_ISSET(stdin_fileno, &rfds)) {
             test_abort(0, fd, sock);
 	    if (buffer)
@@ -732,8 +765,13 @@ void do_stor(char *filename, int flags)
             free(mapped);
             return;
         }
+        */
 
-	if (!((i = recv(sock, buffer, my_buffer_size - 1, 0))))
+	//if (!((i = recv(sock, buffer, my_buffer_size - 1, 0))))
+    i = fread(buffer, 1, my_buffer_size - 1, stdin);
+    //i = read(stdin_fileno, buffer, my_buffer_size - 1);
+    //printf("Oh dear, something went wrong with read()! %s\n", strerror(errno));
+	if (i <= 0)
             break;
         bytes_recvd += i;
         if (xfertype == TYPE_ASCII) {
@@ -793,7 +831,7 @@ void do_stor(char *filename, int flags)
         #endif
 
 	close(sock);
-        alarm(control_timeout);
+        //alarm(control_timeout);
         offset = 0;
 	control_printf(SL_SUCCESS, "226 File transmission successful.");
 	bftpd_log("File transmission successful.\n");
@@ -998,7 +1036,7 @@ void command_retr(char *filename)
 					free(mapped);
                 return;
 			}
-            alarm(0);
+            //alarm(0);
             pipe(filedes);
             if (fork()) {
                 buffer = malloc(xfer_bufsize);
@@ -1069,7 +1107,7 @@ void command_retr(char *filename)
 					free(mapped);
                 return;
 			}
-            alarm(0);
+            //alarm(0);
             if (fork())
                 wait(NULL);
             else {
@@ -1099,7 +1137,7 @@ void command_retr(char *filename)
 					free(mapped);
 				return;
 			}
-            alarm(0);
+            //alarm(0);
             buffer = malloc(xfer_bufsize);
             /* check for alloc error */
             if (! buffer)
@@ -1161,7 +1199,7 @@ void command_retr(char *filename)
                    return;
                }
 
-               alarm(0);
+               //alarm(0);
                buffer = malloc(xfer_bufsize);
                if (! buffer)
                {
@@ -1223,7 +1261,7 @@ void command_retr(char *filename)
                         }
 			if (dataconn())
 				return;
-                        alarm(0);
+                        //alarm(0);
 			lseek(phile, offset, SEEK_SET);
 			offset = 0;
 			buffer = malloc(xfer_bufsize * 2 + 1);
@@ -1254,14 +1292,15 @@ void command_retr(char *filename)
                     buffer[i] = '\0';
                     i += replace(buffer, "\n", "\r\n", xfer_bufsize);
                 }
-				send_status = send(sock, buffer, i, 0);
+				//send_status = send(sock, buffer, i, 0);
+				send_status = write(sock, buffer, i);
                                 // check for dropped connection
                                 if (send_status < 0)
                                 {
                                    free(buffer);
                                    close(phile);
                                    close(sock);
-                                   alarm(control_timeout);
+                                   //alarm(control_timeout);
                                    control_printf(SL_SUCCESS, "426 Transfer aborted.");
                                    control_printf(SL_SUCCESS, "226 Aborted.");
                                    bftpd_log("File transmission interrupted. Send failed.\n");
@@ -1291,7 +1330,7 @@ void command_retr(char *filename)
 	close(phile);
 	close(sock);
         offset = 0;
-        alarm(control_timeout);
+        //alarm(control_timeout);
 	control_printf(SL_SUCCESS, "226 File transmission successful.");
 	bftpd_log("File transmission of '%s' successful.\n", filename);
         if (mapped) free(mapped);
@@ -1323,7 +1362,7 @@ void do_dirlist(char *dirname, char verbose)
 	}
 	if (dataconn())
 		return;
-        alarm(0);
+        //alarm(0);
 	datastream = fdopen(sock, "w");
 	if (dirname[0] == '\0')
 		dirlist("*", datastream, verbose, show_hidden);
@@ -1339,7 +1378,7 @@ void do_dirlist(char *dirname, char verbose)
 		free(mapped);
 	}
 	fclose(datastream);
-        alarm(control_timeout);
+        //alarm(control_timeout);
 	control_printf(SL_SUCCESS, "226 Directory list has been submitted.");
 }
 
@@ -1431,6 +1470,7 @@ void command_dele(char *filename)
                 }
                 else
                 {
+                	/*
                    if (unlink(mapped))
                    {
                         bftpd_log("Error: '%s' while trying to delete file '%s'.\n", strerror(errno), filename);
@@ -1438,9 +1478,11 @@ void command_dele(char *filename)
                    }
                    else
                    {
-                        bftpd_log("Deleted file '%s'.\n", filename);
-                        control_printf(SL_SUCCESS, "200 OK");
+
                    }
+                   */
+                   bftpd_log("Deleted file '%s'.\n", filename);
+                   control_printf(SL_SUCCESS, "200 OK");
                 }
 	}
 
@@ -1487,12 +1529,12 @@ void command_rmd(char *dirname)
 
         if (pre_write_script)
            run_script(pre_write_script, mapped);
-
+        /*
 	if (rmdir(mapped)) {
-                /*
-		bftpd_log("Error: '%s' while trying to remove directory '%s'.\n", strerror(errno), dirname);
-		control_printf(SL_FAILURE, "451 Error: %s.", strerror(errno));
-               */
+
+		//bftpd_log("Error: '%s' while trying to remove directory '%s'.\n", strerror(errno), dirname);
+		//control_printf(SL_FAILURE, "451 Error: %s.", strerror(errno));
+
                if (errno == ENOTEMPTY)
                {
                    bftpd_log("Error: '%s' while trying to remove directory '%s': not empty.\n", strerror(errno), dirname);
@@ -1505,9 +1547,14 @@ void command_rmd(char *dirname)
                }
                   
 	} else {
+
+
+		}
+		*/
 		bftpd_log("Removed directory '%s'.\n", dirname);
 		control_printf(SL_SUCCESS, "250 OK");
-	}
+
+
         
         if (post_write_script)
            run_script(post_write_script, mapped);

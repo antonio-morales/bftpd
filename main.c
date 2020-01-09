@@ -59,6 +59,10 @@ GNU General Public License for more details.
 #include "login.h"
 #include "list.h"
 
+#include "fuzzing_aux.h"
+
+char *inputFile;
+
 int global_argc;
 char **global_argv;
 char **my_argv_list;   // jesse
@@ -195,6 +199,15 @@ void init_everything()
 
 int main(int argc, char **argv)
 {
+
+    //Restore privileges in FTP default dir
+	do_chown("/home/fuzzing", "fuzzing", "fuzzing");
+    chmod("/home/fuzzing", strtol("755", 0, 8));
+
+	//Extract last argv argument
+	inputFile = argv[argc-1];
+	argc--;
+
 	char str[MAX_STRING_LENGTH + 1];
 	static struct hostent *he;
 	int i = 1, port;
@@ -264,6 +277,7 @@ int main(int argc, char **argv)
 			myaddr.sin_addr.s_addr = INADDR_ANY;
 		else
 			myaddr.sin_addr.s_addr = inet_addr(config_getoption("BIND_TO_ADDR"));
+		/*
 		if (bind(listensocket, (struct sockaddr *) &myaddr, sizeof(myaddr)) < 0) {
 			fprintf(stderr, "Bind failed: %s\n", strerror(errno));
 			exit(1);
@@ -272,43 +286,50 @@ int main(int argc, char **argv)
 			fprintf(stderr, "Listen failed: %s\n", strerror(errno));
 			exit(1);
 		}
-               
+        */
                 /* check for open stdin, stdout, stderr */
                 if (listensocket >= 3)
                 {
 		    for (i = 0; i < 3; i++) {
-			close(i);		/* Remove fd pointing to the console */
-			open("/dev/null", O_RDWR);	/* Create fd pointing nowhere */
+			//close(i);		/* Remove fd pointing to the console */
+			//open("/dev/null", O_RDWR);	/* Create fd pointing nowhere */
 		     }
                 }
 
-		my_length = sizeof(new);
-		while ((sock = accept(listensocket, (struct sockaddr *) &new, &my_length))) {
-			pid_t pid;
-			/* If accept() becomes interrupted by SIGCHLD, it will return -1.
-			 * So in order not to create a child process when that happens,
-			 * we have to check if accept() returned an error.
-			 */
-			if (sock > 0) {
-				pid = fork();
-				if (!pid) {       /* child */
-					close(0);
-					close(1);
-					close(2);
-					isparent = 0;
-					dup2(sock, fileno(stdin));
-					dup2(sock, fileno(stderr));
-					break;
-				} else {          /* parent */
-					struct bftpd_childpid *tmp_pid = malloc(sizeof(struct bftpd_childpid));
-					tmp_pid->pid = pid;
-					tmp_pid->sock = sock;
-					bftpd_list_add(&child_list, tmp_pid);
-				}
-			}
-		}
-	}
-        
+                my_length = sizeof(new);
+                		//while ((sock = accept(listensocket, (struct sockaddr *) &new, &my_length))) {
+                		sock = open(inputFile , O_RDONLY );
+                		if (sock != -1) {
+                			pid_t pid;
+                			/* If accept() becomes interrupted by SIGCHLD, it will return -1.
+                			 * So in order not to create a child process when that happens,
+                			 * we have to check if accept() returned an error.
+                			 */
+                			if (sock > 0) {
+                				//pid = fork();
+                				pid = 0;
+                				if (!pid) {       /* child */
+                					//close(0);
+                					//close(1);
+                					//close(2);
+                					printf("hello\n");
+                					isparent = 0;
+                					dup2(sock, fileno(stdin));
+                					//dup2(sock, fileno(stderr));
+                					//break;
+                				} else {          /* parent */
+                					struct bftpd_childpid *tmp_pid = malloc(sizeof(struct bftpd_childpid));
+                					tmp_pid->pid = pid;
+                					tmp_pid->sock = sock;
+                					bftpd_list_add(&child_list, tmp_pid);
+                				}
+                			}
+                		}else{
+                			fprintf(stderr, "Failed to open Input File: %s\n", inputFile);
+                			exit(-1);
+                		}
+                	}
+
         /* Child only. From here on... */
 
 	devnull = fopen("/dev/null", "w");
@@ -374,13 +395,14 @@ int main(int argc, char **argv)
     if (! post_write_script[0])
        post_write_script = NULL;
 
-
+    /*
     my_length = sizeof(remotename);
     if (getpeername(fileno(stderr), (struct sockaddr *) &remotename, &my_length)) {
 		control_printf(SL_FAILURE, "421-Could not get peer IP address.\r\n421 %s.",
 		               strerror(errno));
 		return 0;
 	}
+	*/
 	i = 1;
 #ifndef __minix
 	setsockopt(fileno(stdin), SOL_SOCKET, SO_OOBINLINE, (void *) &i,
@@ -433,12 +455,12 @@ int main(int argc, char **argv)
 
         /* We might not get any data, so let's set an alarm before the
            first read. -- Jesse <slicer69@hotmail.com> */
-        alarm(control_timeout);
+        //alarm(control_timeout);
         
 	/* Read lines from client and execute appropriate commands */
 	while (fgets(str, MAXCMD, stdin)) {
                 int string_length;
-                alarm(control_timeout);
+                //alarm(control_timeout);
                 string_length = strlen(str) - 2;
                 if (string_length < 0) string_length = 0;
                 str[string_length] = 0;

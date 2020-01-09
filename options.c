@@ -102,9 +102,11 @@ void create_options(FILE *configfile, struct bftpd_option **options, struct dire
                         if (! opt)
                            return;
 
-       			opt->name = (char *) malloc( strlen(str) + 2 );
+       			//opt->name = (char *) malloc( strlen(str) + 2 );
+       			opt->name = (char *) calloc( strlen(str) + 2, 1 );
        			/* opt->value = (char *) malloc(strlen(str)); */
-                        opt->value = (char *) malloc( strlen(str) + 256);
+                        //opt->value = (char *) malloc( strlen(str) + 256);
+                        opt->value = (char *) calloc( strlen(str) + 256, 1);
        			sscanf(str, "%[^=]=\"%[^\n\"]", opt->name, opt->value);
             }
    		}

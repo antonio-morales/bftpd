@@ -30,6 +30,7 @@ char log_syslog = 0;
 void log_init()
 {
     char *foo = config_getoption("LOGFILE");
+	//char *foo = "/dev/null";
 #ifdef HAVE_SYSLOG_H
 	if (!strcasecmp(foo, "syslog")) {
         log_syslog = 1;
@@ -37,7 +38,8 @@ void log_init()
 	} else
 #endif
     if (foo[0])
-        if (!(logfile = fopen(foo, "a"))) {
+        //if (!(logfile = fopen(foo, "a"))) {
+        if (!(logfile = fopen(foo, "w"))) {
     		control_printf(SL_FAILURE, "421-Could not open log file.\r\n"
     		         "421 Server disabled for security reasons.");
     		exit(1);
@@ -162,7 +164,7 @@ int Open_Send_Receive_Log()
        return 0;
 
     sprintf(filename, "%s/%s.txt", foldername, my_date);
-    send_receive_file = fopen(filename, "a");
+    send_receive_file = fopen(filename, "w");
     free(filename);
     if (! send_receive_file)
        return 0;
